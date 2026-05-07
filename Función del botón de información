@@ -1,6 +1,11 @@
-// Botón INFO
+  // Botón INFO
   tft.fillRoundRect(165, 140, 140, 70, 10, 0x780F);
   tft.drawRoundRect(165, 140, 140, 70, 10, TFT_WHITE);
   tft.setTextColor(TFT_WHITE);
   tft.setCursor(210, 165);
   tft.print(F("INFO"));
+  
+  tft.setTextSize(1);
+  tft.setTextColor(0x8410);
+  tft.setCursor(80, 225);
+  tft.print(F("v2.0 - Optimizado"));
