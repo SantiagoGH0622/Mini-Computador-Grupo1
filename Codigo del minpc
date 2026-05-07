@@ -1,0 +1,790 @@
+#include <MCUFRIEND_kbv.h>
+#include <Adafruit_GFX.h>
+#include <TouchScreen.h>
+
+MCUFRIEND_kbv tft;
+
+// Configuración de pines
+#define YP A3 
+#define XM A2
+#define YM 9
+#define XP 8
+#define BUZZER A5
+
+// Calibración Touch
+#define TS_LEFT  140
+#define TS_RT    880
+#define TS_TOP   100
+#define TS_BOT   900
+
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
+
+// Estados del sistema
+enum : uint8_t { HOME, CALC, NOTAS, SNAKE, INFO };
+uint8_t pantallaActual = HOME;
+
+// Snake - Variables
+#define MAX_SNAKE 50
+int8_t snakeX[MAX_SNAKE], snakeY[MAX_SNAKE];
+int8_t frutaX, frutaY;
+uint8_t tamSnake = 3;
+uint8_t direccion = 1;  // 0:arriba, 1:derecha, 2:abajo, 3:izquierda
+uint8_t puntuacion = 0;
+uint8_t velocidad = 100;
+bool juegoPausado = false;
+
+// Calculadora
+char entrada[15] = "";
+float resultado = 0;
+char operacion = 0;
+bool nuevaEntrada = true;
+
+// Funciones básicas
+void beep(uint8_t ms = 15) {
+  digitalWrite(BUZZER, HIGH);
+  delay(ms);
+  digitalWrite(BUZZER, LOW);
+}
+
+bool leerTouch(int16_t &x, int16_t &y) {
+  TSPoint p = ts.getPoint();
+  pinMode(XM, OUTPUT);
+  pinMode(YP, OUTPUT);
+  pinMode(XP, OUTPUT);
+  pinMode(YM, OUTPUT);
+  
+  if (p.z < 10 || p.z > 1000) return false;
+  
+  x = map(p.y, TS_LEFT, TS_RT, 0, 320);
+  y = map(p.x, TS_BOT, TS_TOP, 0, 240);
+  
+  if (x < 0) x = 0;
+  if (x > 320) x = 320;
+  if (y < 0) y = 0;
+  if (y > 240) y = 240;
+  
+  return true;
+}
+
+// ===== PANTALLA HOME =====
+void dibujarHome() {
+  pantallaActual = HOME;
+  tft.fillScreen(TFT_BLACK);
+  
+  // Barra superior
+  tft.fillRect(0, 0, 320, 35, 0x001F);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.setCursor(15, 10);
+  tft.print(F("CHIRI INDUSTRIES OS"));
+  
+  // Botón CALCULADORA
+  tft.fillRoundRect(15, 50, 140, 70, 10, 0x07FF);
+  tft.drawRoundRect(15, 50, 140, 70, 10, TFT_WHITE);
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(2);
+  tft.setCursor(35, 75);
+  tft.print(F("CALCULADORA"));
+  
+  // Botón NOTAS
+  tft.fillRoundRect(165, 50, 140, 70, 10, 0x07E0);
+  tft.drawRoundRect(165, 50, 140, 70, 10, TFT_WHITE);
+  tft.setTextColor(TFT_BLACK);
+  tft.setCursor(205, 75);
+  tft.print(F("NOTAS"));
+  
+  // Botón SNAKE
+  tft.fillRoundRect(15, 140, 140, 70, 10, 0xF800);
+  tft.drawRoundRect(15, 140, 140, 70, 10, TFT_WHITE);
+  tft.setTextColor(TFT_WHITE);
+  tft.setCursor(45, 165);
+  tft.print(F("SNAKE"));
+  
+  // Botón INFO
+  tft.fillRoundRect(165, 140, 140, 70, 10, 0x780F);
+  tft.drawRoundRect(165, 140, 140, 70, 10, TFT_WHITE);
+  tft.setTextColor(TFT_WHITE);
+  tft.setCursor(210, 165);
+  tft.print(F("INFO"));
+  
+  tft.setTextSize(1);
+  tft.setTextColor(0x8410);
+  tft.setCursor(80, 225);
+  tft.print(F("v2.0 - Optimizado"));
+}
+
+// ===== CALCULADORA FUNCIONAL =====
+void dibujarCalculadora() {
+  tft.fillScreen(TFT_BLACK);
+  
+  // Display
+  tft.fillRoundRect(5, 5, 310, 55, 5, 0x18E3);
+  tft.drawRoundRect(5, 5, 310, 55, 5, TFT_WHITE);
+  
+  // Mostrar número actual
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(3);
+  tft.setCursor(15, 18);
+  if (entrada[0] == '\0') {
+    tft.print(F("0"));
+  } else {
+    tft.print(entrada);
+  }
+  
+  // Botones numéricos GRANDES y CLAROS
+  // Fila 1: 7 8 9 /
+  tft.fillRoundRect(10, 70, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(10, 70, 70, 35, 8, TFT_WHITE);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(3);
+  tft.setCursor(32, 76);
+  tft.print(F("7"));
+  
+  tft.fillRoundRect(90, 70, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(90, 70, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(112, 76);
+  tft.print(F("8"));
+  
+  tft.fillRoundRect(170, 70, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(170, 70, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(192, 76);
+  tft.print(F("9"));
+  
+  tft.fillRoundRect(250, 70, 60, 35, 8, 0xFD20);
+  tft.drawRoundRect(250, 70, 60, 35, 8, TFT_WHITE);
+  tft.setCursor(270, 76);
+  tft.print(F("/"));
+  
+  // Fila 2: 4 5 6 *
+  tft.fillRoundRect(10, 110, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(10, 110, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(32, 116);
+  tft.print(F("4"));
+  
+  tft.fillRoundRect(90, 110, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(90, 110, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(112, 116);
+  tft.print(F("5"));
+  
+  tft.fillRoundRect(170, 110, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(170, 110, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(192, 116);
+  tft.print(F("6"));
+  
+  tft.fillRoundRect(250, 110, 60, 35, 8, 0xFD20);
+  tft.drawRoundRect(250, 110, 60, 35, 8, TFT_WHITE);
+  tft.setCursor(270, 116);
+  tft.print(F("*"));
+  
+  // Fila 3: 1 2 3 -
+  tft.fillRoundRect(10, 150, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(10, 150, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(32, 156);
+  tft.print(F("1"));
+  
+  tft.fillRoundRect(90, 150, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(90, 150, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(112, 156);
+  tft.print(F("2"));
+  
+  tft.fillRoundRect(170, 150, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(170, 150, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(192, 156);
+  tft.print(F("3"));
+  
+  tft.fillRoundRect(250, 150, 60, 35, 8, 0xFD20);
+  tft.drawRoundRect(250, 150, 60, 35, 8, TFT_WHITE);
+  tft.setCursor(270, 156);
+  tft.print(F("-"));
+  
+  // Fila 4: C 0 = +
+  tft.fillRoundRect(10, 190, 70, 35, 8, 0xF800);
+  tft.drawRoundRect(10, 190, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(35, 196);
+  tft.print(F("C"));
+  
+  tft.fillRoundRect(90, 190, 70, 35, 8, 0x4208);
+  tft.drawRoundRect(90, 190, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(112, 196);
+  tft.print(F("0"));
+  
+  tft.fillRoundRect(170, 190, 70, 35, 8, 0x07E0);
+  tft.drawRoundRect(170, 190, 70, 35, 8, TFT_WHITE);
+  tft.setCursor(192, 196);
+  tft.print(F("="));
+  
+  tft.fillRoundRect(250, 190, 60, 35, 8, 0xFD20);
+  tft.drawRoundRect(250, 190, 60, 35, 8, TFT_WHITE);
+  tft.setCursor(270, 196);
+  tft.print(F("+"));
+  
+  // Botón VOLVER
+  tft.fillRoundRect(10, 232, 300, 8, 4, TFT_RED);
+  tft.setCursor(120, 232);
+  tft.setTextSize(1);
+  tft.print(F("VOLVER AL MENU"));
+}
+
+void procesarCalculadora(char tecla) {
+  if (tecla == 'C') {
+    entrada[0] = '\0';
+    resultado = 0;
+    operacion = 0;
+    nuevaEntrada = true;
+  }
+  else if (tecla >= '0' && tecla <= '9') {
+    if (nuevaEntrada) {
+      entrada[0] = tecla;
+      entrada[1] = '\0';
+      nuevaEntrada = false;
+    } else {
+      uint8_t len = strlen(entrada);
+      if (len < 12) {
+        entrada[len] = tecla;
+        entrada[len + 1] = '\0';
+      }
+    }
+  }
+  else if (tecla == '+' || tecla == '-' || tecla == '*' || tecla == '/') {
+    if (strlen(entrada) > 0) {
+      float num = atof(entrada);
+      if (operacion != 0) {
+        switch(operacion) {
+          case '+': resultado += num; break;
+          case '-': resultado -= num; break;
+          case '*': resultado *= num; break;
+          case '/': 
+            if (num != 0) resultado /= num;
+            else { 
+              strcpy(entrada, "Error"); 
+              dibujarCalculadora();
+              delay(1000);
+              entrada[0] = '\0';
+              resultado = 0;
+              operacion = 0;
+              nuevaEntrada = true;
+              return; 
+            }
+            break;
+        }
+        dtostrf(resultado, 0, 4, entrada);
+      } else {
+        resultado = num;
+      }
+      operacion = tecla;
+      nuevaEntrada = true;
+    }
+  }
+  else if (tecla == '=') {
+    if (operacion != 0 && strlen(entrada) > 0) {
+      float num = atof(entrada);
+      switch(operacion) {
+        case '+': resultado += num; break;
+        case '-': resultado -= num; break;
+        case '*': resultado *= num; break;
+        case '/': 
+          if (num != 0) resultado /= num;
+          else { 
+            strcpy(entrada, "Error"); 
+            dibujarCalculadora();
+            delay(1000);
+            entrada[0] = '\0';
+            resultado = 0;
+            operacion = 0;
+            nuevaEntrada = true;
+            return; 
+          }
+          break;
+      }
+      dtostrf(resultado, 0, 4, entrada);
+      operacion = 0;
+      nuevaEntrada = true;
+    }
+  }
+}
+
+void ejecutarCalculadora() {
+  entrada[0] = '\0';
+  resultado = 0;
+  operacion = 0;
+  nuevaEntrada = true;
+  
+  dibujarCalculadora();
+  
+  bool activa = true;
+  uint32_t lastTouch = 0;
+  
+  while (activa) {
+    int16_t tx, ty;
+    
+    if (leerTouch(tx, ty) && (millis() - lastTouch > 200)) {
+      lastTouch = millis();
+      beep(10);
+      
+      // Volver al menú
+      if (ty > 225) {
+        activa = false;
+        break;
+      }
+      
+      // Determinar qué botón se presionó
+      char tecla = 0;
+      
+      // Fila 1 (y: 70-105)
+      if (ty >= 70 && ty < 105) {
+        if (tx >= 10 && tx < 80) tecla = '7';
+        else if (tx >= 90 && tx < 160) tecla = '8';
+        else if (tx >= 170 && tx < 240) tecla = '9';
+        else if (tx >= 250 && tx < 310) tecla = '/';
+      }
+      // Fila 2 (y: 110-145)
+      else if (ty >= 110 && ty < 145) {
+        if (tx >= 10 && tx < 80) tecla = '4';
+        else if (tx >= 90 && tx < 160) tecla = '5';
+        else if (tx >= 170 && tx < 240) tecla = '6';
+        else if (tx >= 250 && tx < 310) tecla = '*';
+      }
+      // Fila 3 (y: 150-185)
+      else if (ty >= 150 && ty < 185) {
+        if (tx >= 10 && tx < 80) tecla = '1';
+        else if (tx >= 90 && tx < 160) tecla = '2';
+        else if (tx >= 170 && tx < 240) tecla = '3';
+        else if (tx >= 250 && tx < 310) tecla = '-';
+      }
+      // Fila 4 (y: 190-225)
+      else if (ty >= 190 && ty < 225) {
+        if (tx >= 10 && tx < 80) tecla = 'C';
+        else if (tx >= 90 && tx < 160) tecla = '0';
+        else if (tx >= 170 && tx < 240) tecla = '=';
+        else if (tx >= 250 && tx < 310) tecla = '+';
+      }
+      
+      if (tecla != 0) {
+        procesarCalculadora(tecla);
+        dibujarCalculadora();
+      }
+    }
+    delay(20);
+  }
+  
+  dibujarHome();
+}
+
+// ===== SNAKE CORREGIDO =====
+void dibujarControlesSnake() {
+  // Controles direccionales grandes y visibles
+  // ARRIBA
+  tft.fillRoundRect(260, 5, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(260, 5, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(272, 35, 287, 10, 302, 35, TFT_WHITE);
+  
+  // ABAJO
+  tft.fillRoundRect(260, 195, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(260, 195, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(272, 205, 287, 230, 302, 205, TFT_WHITE);
+  
+  // IZQUIERDA
+  tft.fillRoundRect(5, 195, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(5, 195, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(35, 207, 10, 215, 35, 228, TFT_WHITE);
+  
+  // DERECHA
+  tft.fillRoundRect(200, 195, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(200, 195, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(210, 207, 235, 215, 210, 228, TFT_WHITE);
+  
+  // Botón PAUSA
+  tft.fillRoundRect(260, 50, 55, 30, 5, 0xFD20);
+  tft.drawRoundRect(260, 50, 55, 30, 5, TFT_WHITE);
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(1);
+  tft.setCursor(272, 58);
+  tft.print(F("PAUSA"));
+}
+
+void ejecutarSnake() {
+  tft.fillScreen(TFT_BLACK);
+  
+  // Borde del área de juego (deja espacio para controles)
+  tft.drawRect(0, 0, 255, 240, TFT_WHITE);
+  
+  // Dibujar interfaz
+  dibujarControlesSnake();
+  
+  // IMPORTANTE: Inicializar correctamente la serpiente
+  tamSnake = 3;
+  direccion = 1;  // Empezar moviéndose a la derecha
+  puntuacion = 0;
+  velocidad = 150;  // Velocidad inicial más lenta
+  juegoPausado = false;
+  
+  // Posición inicial segura (en el centro del área de juego)
+  snakeX[0] = 120; snakeY[0] = 100;
+  snakeX[1] = 110; snakeY[1] = 100;
+  snakeX[2] = 100; snakeY[2] = 100;
+  
+  // Generar primera fruta en posición segura
+  randomSeed(analogRead(A0) + millis());
+  frutaX = random(2, 24) * 10;
+  frutaY = random(2, 22) * 10;
+  
+  // Panel de puntuación
+  tft.fillRect(255, 0, 65, 15, TFT_BLACK);
+  tft.setTextColor(TFT_YELLOW);
+  tft.setTextSize(1);
+  tft.setCursor(258, 3);
+  tft.print(F("SCORE:0"));
+  
+  // Dibujar serpiente inicial
+  for(uint8_t i = 0; i < tamSnake; i++) {
+    tft.fillRect(snakeX[i], snakeY[i], 8, 8, TFT_GREEN);
+  }
+  
+  // Dibujar fruta inicial
+  tft.fillRect(frutaX, frutaY, 8, 8, TFT_RED);
+  
+  uint32_t lastMove = 0;
+  uint32_t lastTouch = 0;
+  bool vivo = true;
+  
+  // Pequeña pausa antes de empezar
+  delay(500);
+  
+  while(vivo) {
+    int16_t tx, ty;
+    
+    // Leer controles táctiles
+    if (leerTouch(tx, ty) && (millis() - lastTouch > 200)) {
+      lastTouch = millis();
+      
+      // Botón PAUSA
+      if (tx > 260 && tx < 315 && ty > 50 && ty < 80) {
+        beep(20);
+        juegoPausado = !juegoPausado;
+        
+        if (juegoPausado) {
+          tft.fillRoundRect(260, 50, 55, 30, 5, 0x07E0);
+          tft.drawRoundRect(260, 50, 55, 30, 5, TFT_WHITE);
+          tft.setTextColor(TFT_BLACK);
+          tft.setCursor(270, 58);
+          tft.print(F("PLAY"));
+          
+          tft.setTextColor(TFT_WHITE);
+          tft.setTextSize(2);
+          tft.setCursor(80, 100);
+          tft.print(F("PAUSA"));
+        } else {
+          tft.fillRect(70, 100, 100, 20, TFT_BLACK);
+          tft.fillRoundRect(260, 50, 55, 30, 5, 0xFD20);
+          tft.drawRoundRect(260, 50, 55, 30, 5, TFT_WHITE);
+          tft.setTextColor(TFT_BLACK);
+          tft.setCursor(272, 58);
+          tft.print(F("PAUSA"));
+        }
+        continue;
+      }
+      
+      // Controles direccionales (solo si no está pausado)
+      if (!juegoPausado) {
+        // ARRIBA
+        if (tx > 260 && tx < 315 && ty < 45 && direccion != 2) {
+          direccion = 0; 
+          beep(5);
+        }
+        // ABAJO
+        else if (tx > 260 && tx < 315 && ty > 195 && direccion != 0) {
+          direccion = 2; 
+          beep(5);
+        }
+        // IZQUIERDA
+        else if (tx < 60 && ty > 195 && direccion != 1) {
+          direccion = 3; 
+          beep(5);
+        }
+        // DERECHA
+        else if (tx > 200 && tx < 255 && ty > 195 && direccion != 3) {
+          direccion = 1; 
+          beep(5);
+        }
+      }
+    }
+    
+    // Movimiento automático
+    if (!juegoPausado && (millis() - lastMove > velocidad)) {
+      lastMove = millis();
+      
+      // Borrar cola
+      tft.fillRect(snakeX[tamSnake-1], snakeY[tamSnake-1], 8, 8, TFT_BLACK);
+      
+      // Desplazar cuerpo
+      for(int8_t i = tamSnake-1; i > 0; i--) {
+        snakeX[i] = snakeX[i-1];
+        snakeY[i] = snakeY[i-1];
+      }
+      
+      // Mover cabeza según dirección
+      switch(direccion) {
+        case 0: snakeY[0] -= 10; break;  // Arriba
+        case 1: snakeX[0] += 10; break;  // Derecha
+        case 2: snakeY[0] += 10; break;  // Abajo
+        case 3: snakeX[0] -= 10; break;  // Izquierda
+      }
+      
+      // Verificar colisiones con bordes (área de juego: 0-255 x 0-240)
+      if (snakeX[0] < 1 || snakeX[0] > 244 || snakeY[0] < 1 || snakeY[0] > 231) {
+        vivo = false;
+        break;
+      }
+      
+      // Verificar auto-colisión
+      for(uint8_t i = 1; i < tamSnake; i++) {
+        if (snakeX[0] == snakeX[i] && snakeY[0] == snakeY[i]) {
+          vivo = false;
+          break;
+        }
+      }
+      
+      if (!vivo) break;
+      
+      // Verificar si come fruta
+      if (abs(snakeX[0] - frutaX) < 10 && abs(snakeY[0] - frutaY) < 10) {
+        // Crecer serpiente
+        if (tamSnake < MAX_SNAKE) {
+          snakeX[tamSnake] = snakeX[tamSnake-1];
+          snakeY[tamSnake] = snakeY[tamSnake-1];
+          tamSnake++;
+        }
+        puntuacion++;
+        
+        // Actualizar score
+        tft.fillRect(255, 0, 65, 15, TFT_BLACK);
+        tft.setTextColor(TFT_YELLOW);
+        tft.setCursor(258, 3);
+        tft.print(F("SCORE:"));
+        tft.print(puntuacion);
+        
+        // Generar nueva fruta
+        frutaX = random(2, 24) * 10;
+        frutaY = random(2, 22) * 10;
+        tft.fillRect(frutaX, frutaY, 8, 8, TFT_RED);
+        
+        // Aumentar velocidad gradualmente
+        if (velocidad > 60) velocidad -= 5;
+        beep(10);
+      }
+      
+      // Dibujar cabeza
+      tft.fillRect(snakeX[0], snakeY[0], 8, 8, TFT_GREEN);
+    }
+    
+    delay(10);
+  }
+  
+  // GAME OVER
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_RED);
+  tft.setTextSize(3);
+  tft.setCursor(40, 50);
+  tft.print(F("GAME OVER"));
+  
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.setCursor(60, 100);
+  tft.print(F("Score: "));
+  tft.print(puntuacion);
+  
+  // Mensaje según puntuación
+  tft.setCursor(50, 140);
+  tft.setTextSize(2);
+  if (puntuacion > 10) {
+    tft.setTextColor(TFT_GREEN);
+    tft.print(F("EXCELENTE!"));
+  } else if (puntuacion > 5) {
+    tft.setTextColor(TFT_YELLOW);
+    tft.print(F("BIEN HECHO!"));
+  } else {
+    tft.setTextColor(TFT_CYAN);
+    tft.print(F("SIGUE INTENTANDO"));
+  }
+  
+  // Botones finales
+  tft.fillRoundRect(20, 180, 130, 40, 10, TFT_GREEN);
+  tft.drawRoundRect(20, 180, 130, 40, 10, TFT_WHITE);
+  tft.setCursor(35, 192);
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(2);
+  tft.print(F("REINICIAR"));
+  
+  tft.fillRoundRect(170, 180, 130, 40, 10, TFT_RED);
+  tft.drawRoundRect(170, 180, 130, 40, 10, TFT_WHITE);
+  tft.setCursor(200, 192);
+  tft.print(F("SALIR"));
+  
+  delay(500);
+  while(true) {
+    int16_t tx, ty;
+    if (leerTouch(tx, ty)) {
+      if (tx > 20 && tx < 150 && ty > 180 && ty < 220) {
+        beep();
+        delay(200);
+        ejecutarSnake();
+        return;
+      }
+      else if (tx > 170 && tx < 300 && ty > 180 && ty < 220) {
+        beep();
+        delay(200);
+        dibujarHome();
+        return;
+      }
+    }
+    delay(20);
+  }
+}
+
+// ===== NOTAS =====
+void mostrarNotas() {
+  tft.fillScreen(TFT_BLACK);
+  
+  tft.fillRect(0, 0, 320, 30, TFT_GREEN);
+  tft.setCursor(80, 8);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.print(F("MIS NOTAS"));
+  
+  tft.setTextSize(1);
+  tft.setCursor(10, 40);
+  
+  tft.setTextColor(TFT_YELLOW);
+  tft.print(F("TAREAS PENDIENTES:\n"));
+  tft.setTextColor(TFT_WHITE);
+  tft.print(F("1. Comprar Arduino Mega\n2. Terminar proyecto\n3. Estudiar examen\n\n"));
+  
+  tft.setTextColor(TFT_CYAN);
+  tft.print(F("RECORDATORIOS:\n"));
+  tft.setTextColor(TFT_WHITE);
+  tft.print(F("- Reunion 15/03\n- Entregar practica\n\n"));
+  
+  tft.setTextColor(TFT_RED);
+  tft.print(F("DATOS IMPORTANTES:\n"));
+  tft.setTextColor(TFT_WHITE);
+  tft.print(F("WiFi: 12345678\nLab: Chiri2024"));
+  
+  tft.setCursor(10, 235);
+  tft.setTextColor(0x8410);
+  tft.print(F("Toca para volver..."));
+  
+  delay(300);
+  int16_t tx, ty;
+  while(!leerTouch(tx, ty));
+  dibujarHome();
+}
+
+// ===== INFO =====
+void mostrarInfo() {
+  tft.fillScreen(TFT_BLACK);
+  
+  tft.fillRect(0, 0, 320, 35, TFT_MAGENTA);
+  tft.setCursor(60, 8);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.print(F("INFORMACION"));
+  
+  tft.setTextSize(1);
+  tft.setCursor(10, 50);
+  
+  tft.setTextColor(TFT_GREEN);
+  tft.print(F("CHIRI INDUSTRIES OS v2.0\n"));
+  tft.setTextColor(TFT_WHITE);
+  tft.print(F("\nHARDWARE:\n- Arduino Mega 2560\n- TFT 3.5\" 480x320\n"));
+  tft.print(F("\nMEJORAS v2.0:\n+ Calculadora completa\n+ Snake mejorado\n+ Pausa en juegos"));
+  
+  tft.setCursor(10, 235);
+  tft.setTextColor(0x8410);
+  tft.print(F("Toca para volver..."));
+  
+  delay(300);
+  int16_t tx, ty;
+  while(!leerTouch(tx, ty));
+  dibujarHome();
+}
+
+// ===== SETUP Y LOOP =====
+void setup() {
+  Serial.begin(9600);
+  
+  // Inicializar pantalla
+  uint16_t ID = tft.readID();
+  if (ID == 0xD3D3 || ID == 0xFFFF) ID = 0x9341;
+  tft.begin(ID);
+  tft.setRotation(1);
+  
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
+  
+  // Pantalla de inicio
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_GREEN);
+  tft.setTextSize(3);
+  tft.setCursor(40, 80);
+  tft.print(F("CHIRI"));
+  
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.setCursor(50, 120);
+  tft.print(F("INDUSTRIES"));
+  
+  tft.setTextSize(1);
+  tft.setCursor(90, 160);
+  tft.setTextColor(0x8410);
+  tft.print(F("Iniciando v2.0..."));
+  
+  // Barra de progreso
+  for(uint8_t i = 0; i <= 200; i += 40) {
+    tft.fillRect(60, 180, i, 8, TFT_BLUE);
+    delay(150);
+  }
+  
+  delay(500);
+  dibujarHome();
+}
+
+void loop() {
+  int16_t tx, ty;
+  static uint32_t lastTouch = 0;
+  
+  if (leerTouch(tx, ty) && (millis() - lastTouch > 300)) {
+    lastTouch = millis();
+    
+    if (pantallaActual == HOME) {
+      // CALCULADORA
+      if (tx > 15 && tx < 155 && ty > 50 && ty < 120) {
+        beep();
+        delay(200);
+        ejecutarCalculadora();
+        lastTouch = millis();
+      }
+      // NOTAS
+      else if (tx > 165 && tx < 305 && ty > 50 && ty < 120) {
+        beep();
+        delay(200);
+        mostrarNotas();
+        lastTouch = millis();
+      }
+      // SNAKE
+      else if (tx > 15 && tx < 155 && ty > 140 && ty < 210) {
+        beep();
+        delay(200);
+        ejecutarSnake();
+        lastTouch = millis();
+      }
+      // INFO
+      else if (tx > 165 && tx < 305 && ty > 140 && ty < 210) {
+        beep();
+        delay(200);
+        mostrarInfo();
+        lastTouch = millis();
+      }
+    }
+  }
+  delay(20);
+}
