@@ -1,0 +1,6 @@
+  // Botón SNAKE
+  tft.fillRoundRect(15, 140, 140, 70, 10, 0xF800);
+  tft.drawRoundRect(15, 140, 140, 70, 10, TFT_WHITE);
+  tft.setTextColor(TFT_WHITE);
+  tft.setCursor(45, 165);
+  tft.print(F("SNAKE"));
