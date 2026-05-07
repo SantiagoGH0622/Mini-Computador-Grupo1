@@ -1,0 +1,7 @@
+// Botón CALCULADORA
+  tft.fillRoundRect(15, 50, 140, 70, 10, 0x07FF);
+  tft.drawRoundRect(15, 50, 140, 70, 10, TFT_WHITE);
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(2);
+  tft.setCursor(35, 75);
+  tft.print(F("CALCULADORA"));
