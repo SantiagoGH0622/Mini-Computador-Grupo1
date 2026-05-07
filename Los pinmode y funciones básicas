@@ -1,0 +1,26 @@
+// Funciones básicas
+void beep(uint8_t ms = 15) {
+  digitalWrite(BUZZER, HIGH);
+  delay(ms);
+  digitalWrite(BUZZER, LOW);
+}
+
+bool leerTouch(int16_t &x, int16_t &y) {
+  TSPoint p = ts.getPoint();
+  pinMode(XM, OUTPUT);
+  pinMode(YP, OUTPUT);
+  pinMode(XP, OUTPUT);
+  pinMode(YM, OUTPUT);
+  
+  if (p.z < 10 || p.z > 1000) return false;
+  
+  x = map(p.y, TS_LEFT, TS_RT, 0, 320);
+  y = map(p.x, TS_BOT, TS_TOP, 0, 240);
+  
+  if (x < 0) x = 0;
+  if (x > 320) x = 320;
+  if (y < 0) y = 0;
+  if (y > 240) y = 240;
+  
+  return true;
+}
