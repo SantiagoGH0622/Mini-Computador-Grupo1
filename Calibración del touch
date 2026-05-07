@@ -1,0 +1,7 @@
+// Calibración Touch
+#define TS_LEFT  140
+#define TS_RT    880
+#define TS_TOP   100
+#define TS_BOT   900
+
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
