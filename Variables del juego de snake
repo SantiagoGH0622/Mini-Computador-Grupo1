@@ -1,0 +1,9 @@
+// Snake - Variables
+#define MAX_SNAKE 50
+int8_t snakeX[MAX_SNAKE], snakeY[MAX_SNAKE];
+int8_t frutaX, frutaY;
+uint8_t tamSnake = 3;
+uint8_t direccion = 1;  // 0:arriba, 1:derecha, 2:abajo, 3:izquierda
+uint8_t puntuacion = 0;
+uint8_t velocidad = 100;
+bool juegoPausado = false;
