@@ -1,0 +1,6 @@
+// Configuración de pines
+#define YP A3 
+#define XM A2
+#define YM 9
+#define XP 8
+#define BUZZER A5
