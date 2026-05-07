@@ -1,0 +1,270 @@
+// ===== SNAKE CORREGIDO =====
+void dibujarControlesSnake() {
+  // Controles direccionales grandes y visibles
+  // ARRIBA
+  tft.fillRoundRect(260, 5, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(260, 5, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(272, 35, 287, 10, 302, 35, TFT_WHITE);
+  
+  // ABAJO
+  tft.fillRoundRect(260, 195, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(260, 195, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(272, 205, 287, 230, 302, 205, TFT_WHITE);
+  
+  // IZQUIERDA
+  tft.fillRoundRect(5, 195, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(5, 195, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(35, 207, 10, 215, 35, 228, TFT_WHITE);
+  
+  // DERECHA
+  tft.fillRoundRect(200, 195, 55, 40, 8, 0x001F);
+  tft.drawRoundRect(200, 195, 55, 40, 8, TFT_WHITE);
+  tft.fillTriangle(210, 207, 235, 215, 210, 228, TFT_WHITE);
+  
+  // Botón PAUSA
+  tft.fillRoundRect(260, 50, 55, 30, 5, 0xFD20);
+  tft.drawRoundRect(260, 50, 55, 30, 5, TFT_WHITE);
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(1);
+  tft.setCursor(272, 58);
+  tft.print(F("PAUSA"));
+}
+
+void ejecutarSnake() {
+  tft.fillScreen(TFT_BLACK);
+  
+  // Borde del área de juego (deja espacio para controles)
+  tft.drawRect(0, 0, 255, 240, TFT_WHITE);
+  
+  // Dibujar interfaz
+  dibujarControlesSnake();
+  
+  // IMPORTANTE: Inicializar correctamente la serpiente
+  tamSnake = 3;
+  direccion = 1;  // Empezar moviéndose a la derecha
+  puntuacion = 0;
+  velocidad = 150;  // Velocidad inicial más lenta
+  juegoPausado = false;
+  
+  // Posición inicial segura (en el centro del área de juego)
+  snakeX[0] = 120; snakeY[0] = 100;
+  snakeX[1] = 110; snakeY[1] = 100;
+  snakeX[2] = 100; snakeY[2] = 100;
+  
+  // Generar primera fruta en posición segura
+  randomSeed(analogRead(A0) + millis());
+  frutaX = random(2, 24) * 10;
+  frutaY = random(2, 22) * 10;
+  
+  // Panel de puntuación
+  tft.fillRect(255, 0, 65, 15, TFT_BLACK);
+  tft.setTextColor(TFT_YELLOW);
+  tft.setTextSize(1);
+  tft.setCursor(258, 3);
+  tft.print(F("SCORE:0"));
+  
+  // Dibujar serpiente inicial
+  for(uint8_t i = 0; i < tamSnake; i++) {
+    tft.fillRect(snakeX[i], snakeY[i], 8, 8, TFT_GREEN);
+  }
+  
+  // Dibujar fruta inicial
+  tft.fillRect(frutaX, frutaY, 8, 8, TFT_RED);
+  
+  uint32_t lastMove = 0;
+  uint32_t lastTouch = 0;
+  bool vivo = true;
+  
+  // Pequeña pausa antes de empezar
+  delay(500);
+  
+  while(vivo) {
+    int16_t tx, ty;
+    
+    // Leer controles táctiles
+    if (leerTouch(tx, ty) && (millis() - lastTouch > 200)) {
+      lastTouch = millis();
+      
+      // Botón PAUSA
+      if (tx > 260 && tx < 315 && ty > 50 && ty < 80) {
+        beep(20);
+        juegoPausado = !juegoPausado;
+        
+        if (juegoPausado) {
+          tft.fillRoundRect(260, 50, 55, 30, 5, 0x07E0);
+          tft.drawRoundRect(260, 50, 55, 30, 5, TFT_WHITE);
+          tft.setTextColor(TFT_BLACK);
+          tft.setCursor(270, 58);
+          tft.print(F("PLAY"));
+          
+          tft.setTextColor(TFT_WHITE);
+          tft.setTextSize(2);
+          tft.setCursor(80, 100);
+          tft.print(F("PAUSA"));
+        } else {
+          tft.fillRect(70, 100, 100, 20, TFT_BLACK);
+          tft.fillRoundRect(260, 50, 55, 30, 5, 0xFD20);
+          tft.drawRoundRect(260, 50, 55, 30, 5, TFT_WHITE);
+          tft.setTextColor(TFT_BLACK);
+          tft.setCursor(272, 58);
+          tft.print(F("PAUSA"));
+        }
+        continue;
+      }
+      
+      // Controles direccionales (solo si no está pausado)
+      if (!juegoPausado) {
+        // ARRIBA
+        if (tx > 260 && tx < 315 && ty < 45 && direccion != 2) {
+          direccion = 0; 
+          beep(5);
+        }
+        // ABAJO
+        else if (tx > 260 && tx < 315 && ty > 195 && direccion != 0) {
+          direccion = 2; 
+          beep(5);
+        }
+        // IZQUIERDA
+        else if (tx < 60 && ty > 195 && direccion != 1) {
+          direccion = 3; 
+          beep(5);
+        }
+        // DERECHA
+        else if (tx > 200 && tx < 255 && ty > 195 && direccion != 3) {
+          direccion = 1; 
+          beep(5);
+        }
+      }
+    }
+    
+    // Movimiento automático
+    if (!juegoPausado && (millis() - lastMove > velocidad)) {
+      lastMove = millis();
+      
+      // Borrar cola
+      tft.fillRect(snakeX[tamSnake-1], snakeY[tamSnake-1], 8, 8, TFT_BLACK);
+      
+      // Desplazar cuerpo
+      for(int8_t i = tamSnake-1; i > 0; i--) {
+        snakeX[i] = snakeX[i-1];
+        snakeY[i] = snakeY[i-1];
+      }
+      
+      // Mover cabeza según dirección
+      switch(direccion) {
+        case 0: snakeY[0] -= 10; break;  // Arriba
+        case 1: snakeX[0] += 10; break;  // Derecha
+        case 2: snakeY[0] += 10; break;  // Abajo
+        case 3: snakeX[0] -= 10; break;  // Izquierda
+      }
+      
+      // Verificar colisiones con bordes (área de juego: 0-255 x 0-240)
+      if (snakeX[0] < 1 || snakeX[0] > 244 || snakeY[0] < 1 || snakeY[0] > 231) {
+        vivo = false;
+        break;
+      }
+      
+      // Verificar auto-colisión
+      for(uint8_t i = 1; i < tamSnake; i++) {
+        if (snakeX[0] == snakeX[i] && snakeY[0] == snakeY[i]) {
+          vivo = false;
+          break;
+        }
+      }
+      
+      if (!vivo) break;
+      
+      // Verificar si come fruta
+      if (abs(snakeX[0] - frutaX) < 10 && abs(snakeY[0] - frutaY) < 10) {
+        // Crecer serpiente
+        if (tamSnake < MAX_SNAKE) {
+          snakeX[tamSnake] = snakeX[tamSnake-1];
+          snakeY[tamSnake] = snakeY[tamSnake-1];
+          tamSnake++;
+        }
+        puntuacion++;
+        
+        // Actualizar score
+        tft.fillRect(255, 0, 65, 15, TFT_BLACK);
+        tft.setTextColor(TFT_YELLOW);
+        tft.setCursor(258, 3);
+        tft.print(F("SCORE:"));
+        tft.print(puntuacion);
+        
+        // Generar nueva fruta
+        frutaX = random(2, 24) * 10;
+        frutaY = random(2, 22) * 10;
+        tft.fillRect(frutaX, frutaY, 8, 8, TFT_RED);
+        
+        // Aumentar velocidad gradualmente
+        if (velocidad > 60) velocidad -= 5;
+        beep(10);
+      }
+      
+      // Dibujar cabeza
+      tft.fillRect(snakeX[0], snakeY[0], 8, 8, TFT_GREEN);
+    }
+    
+    delay(10);
+  }
+  
+  // GAME OVER
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_RED);
+  tft.setTextSize(3);
+  tft.setCursor(40, 50);
+  tft.print(F("GAME OVER"));
+  
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.setCursor(60, 100);
+  tft.print(F("Score: "));
+  tft.print(puntuacion);
+  
+  // Mensaje según puntuación
+  tft.setCursor(50, 140);
+  tft.setTextSize(2);
+  if (puntuacion > 10) {
+    tft.setTextColor(TFT_GREEN);
+    tft.print(F("EXCELENTE!"));
+  } else if (puntuacion > 5) {
+    tft.setTextColor(TFT_YELLOW);
+    tft.print(F("BIEN HECHO!"));
+  } else {
+    tft.setTextColor(TFT_CYAN);
+    tft.print(F("SIGUE INTENTANDO"));
+  }
+  
+  // Botones finales
+  tft.fillRoundRect(20, 180, 130, 40, 10, TFT_GREEN);
+  tft.drawRoundRect(20, 180, 130, 40, 10, TFT_WHITE);
+  tft.setCursor(35, 192);
+  tft.setTextColor(TFT_BLACK);
+  tft.setTextSize(2);
+  tft.print(F("REINICIAR"));
+  
+  tft.fillRoundRect(170, 180, 130, 40, 10, TFT_RED);
+  tft.drawRoundRect(170, 180, 130, 40, 10, TFT_WHITE);
+  tft.setCursor(200, 192);
+  tft.print(F("SALIR"));
+  
+  delay(500);
+  while(true) {
+    int16_t tx, ty;
+    if (leerTouch(tx, ty)) {
+      if (tx > 20 && tx < 150 && ty > 180 && ty < 220) {
+        beep();
+        delay(200);
+        ejecutarSnake();
+        return;
+      }
+      else if (tx > 170 && tx < 300 && ty > 180 && ty < 220) {
+        beep();
+        delay(200);
+        dibujarHome();
+        return;
+      }
+    }
+    delay(20);
+  }
+}
