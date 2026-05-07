@@ -1,0 +1,7 @@
+// Botón NOTAS
+  tft.fillRoundRect(165, 50, 140, 70, 10, 0x07E0);
+  tft.drawRoundRect(165, 50, 140, 70, 10, TFT_WHITE);
+  tft.setTextColor(TFT_BLACK);
+  tft.setCursor(205, 75);
+  tft.print(F("NOTAS"));
+  
