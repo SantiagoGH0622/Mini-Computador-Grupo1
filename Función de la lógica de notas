@@ -1,0 +1,37 @@
+// ===== NOTAS =====
+void mostrarNotas() {
+  tft.fillScreen(TFT_BLACK);
+  
+  tft.fillRect(0, 0, 320, 30, TFT_GREEN);
+  tft.setCursor(80, 8);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.print(F("MIS NOTAS"));
+  
+  tft.setTextSize(1);
+  tft.setCursor(10, 40);
+  
+  tft.setTextColor(TFT_YELLOW);
+  tft.print(F("TAREAS PENDIENTES:\n"));
+  tft.setTextColor(TFT_WHITE);
+  tft.print(F("1. Comprar Arduino Mega\n2. Terminar proyecto\n3. Estudiar examen\n\n"));
+  
+  tft.setTextColor(TFT_CYAN);
+  tft.print(F("RECORDATORIOS:\n"));
+  tft.setTextColor(TFT_WHITE);
+  tft.print(F("- Reunion 15/03\n- Entregar practica\n\n"));
+  
+  tft.setTextColor(TFT_RED);
+  tft.print(F("DATOS IMPORTANTES:\n"));
+  tft.setTextColor(TFT_WHITE);
+  tft.print(F("WiFi: 12345678\nLab: Chiri2024"));
+  
+  tft.setCursor(10, 235);
+  tft.setTextColor(0x8410);
+  tft.print(F("Toca para volver..."));
+  
+  delay(300);
+  int16_t tx, ty;
+  while(!leerTouch(tx, ty));
+  dibujarHome();
+}
