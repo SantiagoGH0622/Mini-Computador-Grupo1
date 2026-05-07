@@ -1,0 +1,5 @@
+// Calculadora
+char entrada[15] = "";
+float resultado = 0;
+char operacion = 0;
+bool nuevaEntrada = true;
