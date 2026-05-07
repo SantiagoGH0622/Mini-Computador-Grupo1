@@ -1,0 +1,11 @@
+// ===== PANTALLA HOME =====
+void dibujarHome() {
+  pantallaActual = HOME;
+  tft.fillScreen(TFT_BLACK);
+  
+  // Barra superior
+  tft.fillRect(0, 0, 320, 35, 0x001F);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.setCursor(15, 10);
+  tft.print(F("CHIRI INDUSTRIES OS"));
