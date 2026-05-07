@@ -1,0 +1,3 @@
+// Estados del sistema
+enum : uint8_t { HOME, CALC, NOTAS, SNAKE, INFO };
+uint8_t pantallaActual = HOME;
