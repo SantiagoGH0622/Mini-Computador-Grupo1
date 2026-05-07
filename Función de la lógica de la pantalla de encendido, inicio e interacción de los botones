@@ -1,0 +1,80 @@
+// ===== SETUP Y LOOP =====
+void setup() {
+  Serial.begin(9600);
+  
+  // Inicializar pantalla
+  uint16_t ID = tft.readID();
+  if (ID == 0xD3D3 || ID == 0xFFFF) ID = 0x9341;
+  tft.begin(ID);
+  tft.setRotation(1);
+  
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
+  
+  // Pantalla de inicio
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_GREEN);
+  tft.setTextSize(3);
+  tft.setCursor(40, 80);
+  tft.print(F("CHIRI"));
+  
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextSize(2);
+  tft.setCursor(50, 120);
+  tft.print(F("INDUSTRIES"));
+  
+  tft.setTextSize(1);
+  tft.setCursor(90, 160);
+  tft.setTextColor(0x8410);
+  tft.print(F("Iniciando v2.0..."));
+  
+  // Barra de progreso
+  for(uint8_t i = 0; i <= 200; i += 40) {
+    tft.fillRect(60, 180, i, 8, TFT_BLUE);
+    delay(150);
+  }
+  
+  delay(500);
+  dibujarHome();
+}
+
+void loop() {
+  int16_t tx, ty;
+  static uint32_t lastTouch = 0;
+  
+  if (leerTouch(tx, ty) && (millis() - lastTouch > 300)) {
+    lastTouch = millis();
+    
+    if (pantallaActual == HOME) {
+      // CALCULADORA
+      if (tx > 15 && tx < 155 && ty > 50 && ty < 120) {
+        beep();
+        delay(200);
+        ejecutarCalculadora();
+        lastTouch = millis();
+      }
+      // NOTAS
+      else if (tx > 165 && tx < 305 && ty > 50 && ty < 120) {
+        beep();
+        delay(200);
+        mostrarNotas();
+        lastTouch = millis();
+      }
+      // SNAKE
+      else if (tx > 15 && tx < 155 && ty > 140 && ty < 210) {
+        beep();
+        delay(200);
+        ejecutarSnake();
+        lastTouch = millis();
+      }
+      // INFO
+      else if (tx > 165 && tx < 305 && ty > 140 && ty < 210) {
+        beep();
+        delay(200);
+        mostrarInfo();
+        lastTouch = millis();
+      }
+    }
+  }
+  delay(20);
+}
